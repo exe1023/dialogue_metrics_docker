@@ -1,14 +1,23 @@
-# FED
+# FED Dockerized Server
 
-```
-import fed
-  
-# Load model
-model, tokenizer = fed.load_models("microsoft/DialoGPT-large")
 
-# Evaluate
-conversation = "<|endoftext|> Hi! <|endoftext|> Hello, how is your day? <|endoftext|> It's good. It's raining a bit, but I am enjoying a good book. How about you? <|endoftext|> It's good, I just got back from walking my dog What book did you read?"
-scores = fed.evaluate(conversation,
-                      model,
-                      tokenizer)
+## Build Docker Image
 ```
+sh build_docker.sh
+```
+
+## Run Docker Container
+```
+sh run_docker.sh
+```
+
+## Test the Running Docker 
+```
+sh test_server.sh
+```
+
+## Code Structure
+
+Entry Point: `fed_server.py`
+
+Main API: `fed.py`
