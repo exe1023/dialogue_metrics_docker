@@ -80,6 +80,7 @@ def prep_uk(context, response):
   return rows
 
 def init_args():
+  # Here we handcraft where the pretrained models are
   drc_args = arguments.arc_args('/workspace/pretrained_models/ctx')
   drf_args = arguments.arf_args('/workspace/pretrained_models/uk')
   mlm_args = arguments.mlm_args('/workspace/pretrained_models/roberta_ft')
@@ -102,7 +103,7 @@ def get_dr_score(args, model, tokenizer, context, response, model_type='drc'):
   elif model_type == 'drf':
     data = prep_uk(context, response)
   else:
-    raise Exception("No such dialog retrival metric")
+    raise Exception("No such dialog retrival metric. Choose from drc / drf")
   
   scores = dr_api.get_scores(args, model, tokenizer, data)
   return scores
@@ -131,5 +132,3 @@ def get_scores(context, response,
   print(scores)
   return scores
   
-if __name__ == '__main__':
-    get_scores("/workspace/pretrained_models", "dialogue_context.txt", "dialogue_response.txt")
