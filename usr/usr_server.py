@@ -29,7 +29,7 @@ class MainHandler(tornado.web.RequestHandler):
           request['response_scores'] = scores
 
           logging.info('Response Scores ' + str(scores))
-        self.write(server_response)
+        self.write(body)
 
 def tail(file, n=1, bs=1024):
     f = open(file)

@@ -46,7 +46,9 @@ class MainHandler(tornado.web.RequestHandler):
     def post(self):
         body = tornado.escape.json_decode(self.request.body)
 
-        for request in body:
+        logging.info('Received {} Requests'.format(len(body)))
+        for i, request in enumerate(body):
+            print('deal with ', i)
             logging.info('Received Data ' + str(request))
             # context format "<|endoftext|> message1 <|endoftext|> message2 ... <|endoftext|> response"        
             context = [message['text'] for message in request['dialogue_context']]

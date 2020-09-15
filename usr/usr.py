@@ -81,9 +81,10 @@ def prep_uk(context, response):
 
 def init_args():
   # Here we handcraft where the pretrained models are
-  drc_args = arguments.arc_args('/workspace/pretrained_models/ctx')
-  drf_args = arguments.arf_args('/workspace/pretrained_models/uk')
-  mlm_args = arguments.mlm_args('/workspace/pretrained_models/roberta_ft')
+  prefix = '/home/yiting/usr/'
+  drc_args = arguments.arc_args(prefix + 'pretrained_models/ctx')
+  drf_args = arguments.arf_args(prefix + 'pretrained_models/uk')
+  mlm_args = arguments.mlm_args(prefix + 'pretrained_models/roberta_ft')
 
   return drc_args, drf_args, mlm_args
 
