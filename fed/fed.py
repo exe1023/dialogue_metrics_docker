@@ -26,6 +26,27 @@ def load_models(name="microsoft/DialoGPT-large"):
   model.to("cuda")
   return model, tokenizer
 
+def score_batch(texts, tokenizer, model):
+  #input_ids = torch.tensor(tokenizer.encode(text)).unsqueeze(0)  # Batch size 1
+  input_ids = []
+  for text in texts:
+    if not text.startswith("<|endoftext|> "):
+      text = "<|endoftext|> " + text
+    tokenize_input = tokenizer.tokenize(text)
+    if len(tokenize_input) >= 1024:
+      tokenize_input = ['<|endoftext|>'] + tokenize_input[-1023:]
+    input_ids.append(tokenizer.convert_tokens_to_ids(tokenize_input))
+  print(input_ids)
+  tensor_input = torch.tensor(input_ids).cuda()
+  print(tensor_input.size())
+  #tensor_input = torch.tensor([ tokenizer.convert_tokens_to_ids(tokenize_input)]).cuda()
+  with torch.no_grad():
+      outputs = model(tensor_input, labels=tensor_input)
+      loss, logits = outputs[:2]
+  print(loss, loss.sum())
+  return loss.item() 
+
+
 def score(text, tokenizer, model):
   if not text.startswith("<|endoftext|> "):
     text = "<|endoftext|> " + text
@@ -83,9 +104,12 @@ def evaluate(conversation, model, tokenizer):
 
     # Positive score
     high_score = 0
+    queries = []
     for m in pos:
-      hs = score(conversation + " <|endoftext|> " + m, tokenizer, model) 
-      high_score += hs 
+      queries.append(conversation + " <|endoftext|> " + m)
+      #hs = score(conversation + " <|endoftext|> " + m, tokenizer, model) 
+      #high_score += hs 
+    high_score = score_batch(queries, tokenizer, model)
 
     high_score = high_score/max(len(pos), 1)
 
