@@ -1,8 +1,13 @@
-{ "dialogid" : "xxx", "system_name" : "xxx", "date": "optional", "dialogue_context":  
+[
+{ "dialogid" : "xxx", 
+  "system_name" : "xxx", 
+  "date": "optional", 
+  "dialogue_context":  
     [ {"agent": "scmamer", "text": "Hi!"}, 
       {"agent": "victim", "text": "Hello, how is your day?"}, 
       {"agent": "scmamer", "text": "Its good. Its raining a bit, but I am enjoying a good book. How about you?"} 
     ], 
-      "response_list":  ["Its good, I just got back from walking my dog What book did you read?", "test", "test2"], 
-      "agent_name": "victim" 
+  "response_list":  ["Its good, I just got back from walking my dog What book did you read?", "test", "test2"], 
+  "agent_name": "victim" 
 }
+]

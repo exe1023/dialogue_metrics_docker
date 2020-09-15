@@ -56,6 +56,7 @@ class MainHandler(tornado.web.RequestHandler):
             scores = []
             for response in request['response_list']:
                 conversation = context + response
+                #print(conversation)
                 scores.append(fed.evaluate(conversation, model, tokenizer))
             
             request['response_scores'] = scores

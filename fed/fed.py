@@ -29,14 +29,16 @@ def load_models(name="microsoft/DialoGPT-large"):
 def score(text, tokenizer, model):
   if not text.startswith("<|endoftext|> "):
     text = "<|endoftext|> " + text
-  input_ids = torch.tensor(tokenizer.encode(text)).unsqueeze(0)  # Batch size 1
+  #input_ids = torch.tensor(tokenizer.encode(text)).unsqueeze(0)  # Batch size 1
   tokenize_input = tokenizer.tokenize(text)
-  #50256 is the token_id for <|endoftext|>
+  
+  if len(tokenize_input) >= 1024:
+    tokenize_input = ['<|endoftext|>'] + tokenize_input[-1023:]
+  #50256 is the token_id for <|endoftext|> 
   tensor_input = torch.tensor([ tokenizer.convert_tokens_to_ids(tokenize_input)]).cuda()
   with torch.no_grad():
       outputs = model(tensor_input, labels=tensor_input)
       loss, logits = outputs[:2]
-
   return loss.item() 
 
 def evaluate(conversation, model, tokenizer):
