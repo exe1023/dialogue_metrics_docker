@@ -5,26 +5,33 @@ import logging
 '''
 API:
 Input:
+[
     { 
         'dialogid' : xxx,
         'system_name' : xxx,
         'date': optional,
         'dialogue_context': 
-            [ {agent:scmamer/victim, text: message text},
-            {agent:scmamer/victim, text: message text}, 
-            {agent:scmamer/victim, text: message text}
+            [ 
+            {agent:scmamer/victim, text: message text, date: optional},
+            {agent:scmamer/victim, text: message text, date: optional}, 
+            {agent:scmamer/victim, text: message text, date: optional}
             ]
         'response_list': 
             [response1, response2, response3]
         'agent_name': 'victim'
     }
+    .....
+
+]
 Output:
+[
     {
         'dialogid' : xxx,
         ....
         'response_scores':
             [score1, score2, score3]
     }
+]
 '''
 
 
@@ -39,22 +46,22 @@ class MainHandler(tornado.web.RequestHandler):
     def post(self):
         body = tornado.escape.json_decode(self.request.body)
 
-        # context format "<|endoftext|> message1 <|endoftext|> message2 ... <|endoftext|> response"        
-        context = [message['text'] for message in body['dialogue_context']]
-        context = ' <|endoftext|> '.join(context)
-        context = '<|endoftext|> ' + context + ' <|endoftext| '
+        for request in body:
+            logging.info('Received Data ' + str(request))
+            # context format "<|endoftext|> message1 <|endoftext|> message2 ... <|endoftext|> response"        
+            context = [message['text'] for message in request['dialogue_context']]
+            context = ' <|endoftext|> '.join(context)
+            context = '<|endoftext|> ' + context + ' <|endoftext| '
 
-        scores = []
-        for response in body['response_list']:
-            conversation = context + response
-            scores.append(fed.evaluate(conversation, model, tokenizer))
-        
-        server_response = body
-        server_response['response_scores'] = scores
-        #print(server_response)
-        logging.info('Received Data ' + str(body))
-        logging.info('Response Scores ' + str(scores))
-        self.write(server_response)
+            scores = []
+            for response in request['response_list']:
+                conversation = context + response
+                scores.append(fed.evaluate(conversation, model, tokenizer))
+            
+            request['response_scores'] = scores
+            #print(server_response)
+            logging.info('Response Scores ' + str(scores))
+        self.write(request)
 
 def tail(file, n=1, bs=1024):
     f = open(file)

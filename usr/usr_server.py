@@ -14,20 +14,21 @@ class MainHandler(tornado.web.RequestHandler):
     
     def post(self):
         body = tornado.escape.json_decode(self.request.body)
-        context = ' '.join([message['text'] for message in body['dialogue_context']])
+        for request in body:
+          logging.info('Received Data ' + str(request))
 
-        scores = []
-        for response in body['response_list']:
-            scores.append(usr.get_scores([context], [response], 
-                          drc_args, drc_model, drc_tokenizer,
-                          drf_args, drf_model, drf_tokenizer,
-                          mlm_args, mlm_model, mlm_tokenizer))
-        
-        server_response = body
-        server_response['response_scores'] = scores
+          context = ' '.join([message['text'] for message in request['dialogue_context']])
 
-        logging.info('Received Data ' + str(body))
-        logging.info('Response Scores ' + str(scores))
+          scores = []
+          for response in request['response_list']:
+              scores.append(usr.get_scores([context], [response], 
+                            drc_args, drc_model, drc_tokenizer,
+                            drf_args, drf_model, drf_tokenizer,
+                            mlm_args, mlm_model, mlm_tokenizer))
+          
+          request['response_scores'] = scores
+
+          logging.info('Response Scores ' + str(scores))
         self.write(server_response)
 
 def tail(file, n=1, bs=1024):
