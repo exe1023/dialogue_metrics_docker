@@ -104,12 +104,12 @@ def evaluate(conversation, model, tokenizer):
 
     # Positive score
     high_score = 0
-    queries = []
+    #queries = []
     for m in pos:
-      queries.append(conversation + " <|endoftext|> " + m)
-      #hs = score(conversation + " <|endoftext|> " + m, tokenizer, model) 
-      #high_score += hs 
-    high_score = score_batch(queries, tokenizer, model)
+      #queries.append(conversation + " <|endoftext|> " + m)
+      hs = score(conversation + " <|endoftext|> " + m, tokenizer, model) 
+      high_score += hs 
+    #high_score = score_batch(queries, tokenizer, model)
 
     high_score = high_score/max(len(pos), 1)
 

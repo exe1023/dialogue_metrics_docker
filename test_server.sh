@@ -1,4 +1,4 @@
 curl --header "Content-Type: application/json" \
   --request POST \
-  -d @request.json \
-  http://localhost:8888/
+  -d @$1 \
+  http://localhost:$2/
