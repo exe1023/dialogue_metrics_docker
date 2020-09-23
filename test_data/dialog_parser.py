@@ -37,7 +37,6 @@ def clean(text: str) -> str:
         cleaned_text.append(sent)
 
     return " ".join(cleaned_text)
-    #return cleaned_text
 
 dialogs = json.load(open('All_Dialogs.json'))
 
