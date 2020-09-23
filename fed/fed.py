@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler
 from torch.utils.data.distributed import DistributedSampler
-
+from torch.nn import CrossEntropyLoss
 
 import math
 from transformers import AutoTokenizer, AutoModelWithLMHead
@@ -25,27 +25,40 @@ def load_models(name="microsoft/DialoGPT-large"):
   model = AutoModelWithLMHead.from_pretrained(name)
   model.to("cuda")
   return model, tokenizer
-
 def score_batch(texts, tokenizer, model):
-  #input_ids = torch.tensor(tokenizer.encode(text)).unsqueeze(0)  # Batch size 1
-  input_ids = []
+  '''
+  texts: list of string
+  '''
+  # make sure all text will in 1024:
+  text_batchs = []
   for text in texts:
-    if not text.startswith("<|endoftext|> "):
-      text = "<|endoftext|> " + text
-    tokenize_input = tokenizer.tokenize(text)
-    if len(tokenize_input) >= 1024:
-      tokenize_input = ['<|endoftext|>'] + tokenize_input[-1023:]
-    input_ids.append(tokenizer.convert_tokens_to_ids(tokenize_input))
-  print(input_ids)
-  tensor_input = torch.tensor(input_ids).cuda()
-  print(tensor_input.size())
-  #tensor_input = torch.tensor([ tokenizer.convert_tokens_to_ids(tokenize_input)]).cuda()
-  with torch.no_grad():
-      outputs = model(tensor_input, labels=tensor_input)
-      loss, logits = outputs[:2]
-  print(loss, loss.sum())
-  return loss.item() 
+    tokenized = tokenizer.tokenize(text)
+    if len(tokenized) > 256:
+      tokenized = [tokenizer.eos_token] + tokenized[-256:]
+    text_batchs.append(tokenized)
+  
+  # pad the input and generate attention mask
+  pad_idx = tokenizer.convert_tokens_to_ids([tokenizer.eos_token])
+  token_ids = [tokenizer.convert_tokens_to_ids(s) for s in text_batchs]
+  max_text_length = max([len(s) for s in token_ids])
+  padded_tokens = [tok_ids + (pad_idx * (max_text_length - len(tok_ids))) for tok_ids in token_ids]
+  input_ids = torch.tensor(padded_tokens).cuda()
+  attention_mask = torch.zeros(input_ids.shape).long().cuda()
+  for idx, tok_ids in enumerate(token_ids):
+    attention_mask[idx][:len(tok_ids)] = 1
 
+  #print(input_ids)
+  #print(tensor_input.size())
+  with torch.no_grad():
+      outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids)
+      loss, logits = outputs[:2]
+  #print(loss, loss.sum())
+  shifted_logits = logits[:, :-1, :].contiguous()
+  labels = input_ids[:, 1:].contiguous()
+  loss_fct = CrossEntropyLoss(reduction='none')
+  lm_loss = loss_fct(shifted_logits.view(-1, model.config.vocab_size), labels.view(-1))
+
+  return loss.item(), lm_loss.view(len(texts), -1)
 
 def score(text, tokenizer, model):
   if not text.startswith("<|endoftext|> "):
@@ -53,8 +66,8 @@ def score(text, tokenizer, model):
   #input_ids = torch.tensor(tokenizer.encode(text)).unsqueeze(0)  # Batch size 1
   tokenize_input = tokenizer.tokenize(text)
   
-  if len(tokenize_input) >= 1024:
-    tokenize_input = ['<|endoftext|>'] + tokenize_input[-1023:]
+  if len(tokenize_input) >= 256:
+    tokenize_input = ['<|endoftext|>'] + tokenize_input[-256:]
   #50256 is the token_id for <|endoftext|> 
   tensor_input = torch.tensor([ tokenizer.convert_tokens_to_ids(tokenize_input)]).cuda()
   with torch.no_grad():
@@ -98,29 +111,30 @@ def evaluate(conversation, model, tokenizer):
       "negative": ["Is that real English?", "I'm so confused right now!", "That makes no sense!"]
     },
   }
-  for metric,utts in turn_level_utts.items():
-    pos = utts["positive"]
-    neg = utts["negative"]
 
-    # Positive score
-    high_score = 0
-    #queries = []
+  texts = []  
+  for metric, utts in turn_level_utts.items():
+    pos, neg = utts["positive"], utts['negative']
     for m in pos:
-      #queries.append(conversation + " <|endoftext|> " + m)
-      hs = score(conversation + " <|endoftext|> " + m, tokenizer, model) 
-      high_score += hs 
-    #high_score = score_batch(queries, tokenizer, model)
-
-    high_score = high_score/max(len(pos), 1)
-
-    # Negative score
-    low_score = 0
+      texts.append(conversation + " <|endoftext|> " + m)
     for m in neg:
-      ls = score(conversation + " <|endoftext|> " + m, tokenizer, model) 
-      low_score += ls 
-    low_score = low_score/max(len(neg), 1)
-
+      texts.append(conversation + " <|endoftext|> " + m)
+  _, loss = score_batch(texts, tokenizer, model)
+  idx = 0
+  for metric, utts in turn_level_utts.items():
+    pos, neg = utts["positive"], utts['negative']
+    if len(pos) > 0:
+      high_score = loss[idx: idx + len(pos), :].mean().item()
+    else:
+      high_score = 0
+    idx += len(pos)
+    if len(neg) > 0:
+      low_score = loss[idx: idx + len(neg), :].mean().item()
+    else:
+      low_score = 0
+    idx += len(neg)
     scores[metric] = (low_score - high_score)
+
 
   dialog_level_utts = {
     "coherent": {
@@ -164,25 +178,29 @@ def evaluate(conversation, model, tokenizer):
       "negative": ["You don't ask many questions.", "You don't seem interested."],
     },
   }
-  for metric,utts in dialog_level_utts.items():
-    pos = utts["positive"]
-    neg = utts["negative"]
 
-    # Positive
-    high_score = 0
+  texts = []  
+  for metric, utts in dialog_level_utts.items():
+    pos, neg = utts["positive"], utts['negative']
     for m in pos:
-      hs = score(conversation + " <|endoftext|> " + m, tokenizer, model) 
-      high_score += hs 
-
-    high_score = high_score/max(len(pos), 1)
-
-    # Negative
-    low_score = 0
+      texts.append(conversation + " <|endoftext|> " + m)
     for m in neg:
-      ls = score(conversation + " <|endoftext|> " + m, tokenizer, model) 
-      low_score += ls 
-    low_score = low_score/max(len(neg), 1)
-
+      texts.append(conversation + " <|endoftext|> " + m)
+  _, loss = score_batch(texts, tokenizer, model)
+  idx = 0
+  for metric, utts in dialog_level_utts.items():
+    pos, neg = utts["positive"], utts['negative']
+    if len(pos) > 0:
+      high_score = loss[idx: idx + len(pos), :].mean().item()
+    else:
+      high_score = 0
+    idx += len(pos)
+    if len(neg) > 0:
+      low_score = loss[idx: idx + len(neg), :].mean().item()
+    else:
+      low_score = 0
+    idx += len(neg)
     scores[metric] = (low_score - high_score)
+
 
   return scores
