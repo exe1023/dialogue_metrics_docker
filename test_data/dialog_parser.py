@@ -3,6 +3,7 @@ import time
 import datetime
 import re
 
+ending = ['cheers', 'yours truly', 'best regard']
 def clean(text: str) -> str:
     text = re.sub('[!@#$<>\[\]_-]', '', text) # special tokens
     text = re.sub(r'^https?:\/\/.*[\r\n]*', '', text, flags=re.MULTILINE) # url
@@ -26,12 +27,19 @@ def clean(text: str) -> str:
             'to from' in s or \
             'from to' in s:
             continue
+        break_flag = 0
+        for end in ending:
+            if end in s:
+                break_flag = 1
+                break
+        if break_flag:
+            break
         cleaned_text.append(sent)
 
     return " ".join(cleaned_text)
     #return cleaned_text
 
-dialogs = json.load(open('DE_CACHE/All_Dialogs.json'))
+dialogs = json.load(open('All_Dialogs.json'))
 
 #context_turns = -1 # all
 context_turns = 1
