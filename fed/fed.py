@@ -25,9 +25,11 @@ def load_models(name="microsoft/DialoGPT-large"):
   model = AutoModelWithLMHead.from_pretrained(name)
   model.to("cuda")
   return model, tokenizer
-def score_batch(texts, tokenizer, model):
+def score_batch(texts, tokenizer, model, batch_size=-1):
   '''
   texts: list of string
+  tokenizer, model: pretrained tokenizer ana model from HuggingFace transformers
+  batch_size: specify the batch size you want to use in inference. -1 means packing all queries in 1 batch.
   '''
   # make sure all text will in 1024:
   text_batchs = []
@@ -47,12 +49,20 @@ def score_batch(texts, tokenizer, model):
   for idx, tok_ids in enumerate(token_ids):
     attention_mask[idx][:len(tok_ids)] = 1
 
-  #print(input_ids)
-  #print(tensor_input.size())
   with torch.no_grad():
-      outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids)
-      loss, logits = outputs[:2]
-  #print(loss, loss.sum())
+      if batch_size == -1:
+        outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids)
+        loss, logits = outputs[:2]
+      else:
+        loss, logits = [], []
+        for i in range(0, input_ids.shape(0), batch_size):
+          outputs = model(input_ids[i:i + batch_size, :], \
+            attention_mask=attention_mask[i:i + batch_size, :], \
+            labels=input_ids[i:i + batch_size, :])
+          loss.append(outputs[0])
+          logits.append(outputs[1])
+        loss = torch.cat(loss, dim=0)
+        logits = torch.cat(logits, dim=0)
   shifted_logits = logits[:, :-1, :].contiguous()
   labels = input_ids[:, 1:].contiguous()
   loss_fct = CrossEntropyLoss(reduction='none')
