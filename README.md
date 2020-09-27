@@ -86,7 +86,7 @@ Server Output: (take usr as an example)
 └── results (test results goes here)
 ```
 
-## Known Problems:
+## Known Problems (9/27 Updated):
 
-1. Slow running speed of fed: In the original implementation, authors only implement the inference for single instance and there is no batch inference for the fed.
-2. Weird score of USR-DRc and USR-DRf two metrics in usr: Currently I have not identiefied the cause of this problem, but have some guesses. In original paper, authors use `fact` with dialogue context to train RoBERTa on retrieval tasks to score responses. Here since we have no `fact` in our application, I simply copy the dialogue context as `fact` and use it as input. Another guess is it is due to the very long input / output length. Since it is the retrieval-based model, it is possible that the model gives very high score to long response as it may include more related information. 
+1. ~~Slow running speed of fed: In the original implementation, authors only implement the inference for single instance and there is no batch inference for the fed.~~ -> I have implemented batch inference for FED. Now the performance bottleneck lie on gpu memory size.
+2. Weird score of USR-DRc and USR-DRf two metrics in usr: Currently I have not identiefied the cause of this problem, but have some guesses. In original paper, authors use `fact` with dialogue context to train RoBERTa on retrieval tasks to score responses. Here since we have no `fact` in our application, I simply copy the dialogue context as `fact` and use it as input. Another guess is it is due to the very long input / output length. Since it is the retrieval-based model, it is possible that the model gives very high score to long response as it may include more related information. -> I have discussed with authors of USR metrics. They told me USR metrics is desgined as self-supervised metrics but not for zero-shot evaluation. Thus it is reasonable that sometimes it gives weird results on our dataset. If we want to use it, we need to finetune it using our dialogues. However, currently we have few dialogues for training / development. We are still figuring our how to overcome this problem.

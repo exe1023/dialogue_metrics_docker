@@ -24,4 +24,4 @@ Main API: `fed.py`
 
 ## Change Batch Size / Maximum Query Length
 
-Change the parameter when calling score_batch in [here](https://github.com/exe1023/dialogue_metrics_docker/blob/e784296a976450592cfeab82f7ec45551f482324/fed/fed.py#L132) and [here](https://github.com/exe1023/dialogue_metrics_docker/blob/e784296a976450592cfeab82f7ec45551f482324/fed/fed.py#L199).
+Change the parameter when calling score_batch in [here](https://github.com/exe1023/dialogue_metrics_docker/blob/ff4eb42718972a76cd3df734715fcf08ec956a87/fed/fed.py#L134) and [here](https://github.com/exe1023/dialogue_metrics_docker/blob/ff4eb42718972a76cd3df734715fcf08ec956a87/fed/fed.py#L201)
