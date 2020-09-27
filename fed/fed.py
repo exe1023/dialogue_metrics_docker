@@ -25,18 +25,20 @@ def load_models(name="microsoft/DialoGPT-large"):
   model = AutoModelWithLMHead.from_pretrained(name)
   model.to("cuda")
   return model, tokenizer
-def score_batch(texts, tokenizer, model, batch_size=-1):
+def score_batch(texts, tokenizer, model, batch_size=-1, max_seq_length=256):
   '''
   texts: list of string
   tokenizer, model: pretrained tokenizer ana model from HuggingFace transformers
   batch_size: specify the batch size you want to use in inference. -1 means packing all queries in 1 batch.
+  max_seq_length: specify the maximum sequence length after tokenization. Max: 1024
   '''
   # make sure all text will in 1024:
   text_batchs = []
   for text in texts:
     tokenized = tokenizer.tokenize(text)
-    if len(tokenized) > 256:
-      tokenized = [tokenizer.eos_token] + tokenized[-256:]
+    if len(tokenized) > max_seq_length:
+      tokenized = tokenized[-(max_seq_length):]
+      tokenized[0] = tokenizer.eos_token # max sure we have special token at beginning.
     text_batchs.append(tokenized)
   
   # pad the input and generate attention mask
@@ -52,23 +54,21 @@ def score_batch(texts, tokenizer, model, batch_size=-1):
   with torch.no_grad():
       if batch_size == -1:
         outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids)
-        loss, logits = outputs[:2]
+        logits = outputs[1]
       else:
-        loss, logits = [], []
-        for i in range(0, input_ids.shape(0), batch_size):
+        logits = []
+        for i in range(0, input_ids.size(0), batch_size):
           outputs = model(input_ids[i:i + batch_size, :], \
             attention_mask=attention_mask[i:i + batch_size, :], \
             labels=input_ids[i:i + batch_size, :])
-          loss.append(outputs[0])
           logits.append(outputs[1])
-        loss = torch.cat(loss, dim=0)
         logits = torch.cat(logits, dim=0)
   shifted_logits = logits[:, :-1, :].contiguous()
   labels = input_ids[:, 1:].contiguous()
   loss_fct = CrossEntropyLoss(reduction='none')
   lm_loss = loss_fct(shifted_logits.view(-1, model.config.vocab_size), labels.view(-1))
 
-  return loss.item(), lm_loss.view(len(texts), -1)
+  return lm_loss.view(len(texts), -1)
 
 def score(text, tokenizer, model):
   if not text.startswith("<|endoftext|> "):
@@ -129,7 +129,7 @@ def evaluate(conversation, model, tokenizer):
       texts.append(conversation + " <|endoftext|> " + m)
     for m in neg:
       texts.append(conversation + " <|endoftext|> " + m)
-  _, loss = score_batch(texts, tokenizer, model)
+  loss = score_batch(texts, tokenizer, model, batch_size=-1)
   idx = 0
   for metric, utts in turn_level_utts.items():
     pos, neg = utts["positive"], utts['negative']
@@ -196,7 +196,7 @@ def evaluate(conversation, model, tokenizer):
       texts.append(conversation + " <|endoftext|> " + m)
     for m in neg:
       texts.append(conversation + " <|endoftext|> " + m)
-  _, loss = score_batch(texts, tokenizer, model)
+  loss = score_batch(texts, tokenizer, model, batch_size=-1)
   idx = 0
   for metric, utts in dialog_level_utts.items():
     pos, neg = utts["positive"], utts['negative']
