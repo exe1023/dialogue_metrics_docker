@@ -25,6 +25,7 @@ def load_models(name="microsoft/DialoGPT-large"):
   model = AutoModelWithLMHead.from_pretrained(name)
   model.to("cuda")
   return model, tokenizer
+
 def score_batch(texts, tokenizer, model, batch_size=-1, max_seq_length=256):
   '''
   texts: list of string
@@ -129,6 +130,7 @@ def evaluate(conversation, model, tokenizer):
       texts.append(conversation + " <|endoftext|> " + m)
     for m in neg:
       texts.append(conversation + " <|endoftext|> " + m)
+      
   loss = score_batch(texts, tokenizer, model, batch_size=-1)
   idx = 0
   for metric, utts in turn_level_utts.items():
