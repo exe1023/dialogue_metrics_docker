@@ -1,6 +1,7 @@
 import argparse
 def init_args():
      parser = argparse.ArgumentParser()
+     parser.add_argument('--finetune_task', default='mlm', type=str)
      # -----------   From train_understandable.py --------
      ## Required parameters
      parser.add_argument("--data_dir", default=None, type=str, required=False,
