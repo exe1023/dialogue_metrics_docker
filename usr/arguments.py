@@ -14,6 +14,8 @@ def init_args():
                          help="The name of the task to train selected in the list: " + ", ")
      parser.add_argument("--output_dir", default=None, type=str, required=False,
                          help="The output directory where the model predictions and checkpoints will be written.")
+     parser.add_argument("--pretrained_dir", default=None, type=str, required=False,
+                         help="The output directory where the model predictions and checkpoints will be written.")
 
      ## Other parameters
      parser.add_argument("--config_name", default="", type=str,
@@ -116,7 +118,9 @@ def init_args():
 def arc_args(model_path):
      args = init_args()
      args.per_gpu_eval_batch_size = 1
-     args.output_dir = model_path
+     args.pretrained_dir = model_path
+     if args.output_dir is None:
+          args.output_dir = model_path
      args.model_type = 'roberta'
      args.model_name_or_path = 'roberta-base'
      args.do_eval = True
@@ -127,7 +131,9 @@ def arc_args(model_path):
 def arf_args(model_path):
      args = init_args()
      args.per_gpu_eval_batch_size = 1
-     args.output_dir = model_path
+     args.pretrained_dir = model_path
+     if args.output_dir is None:
+          args.output_dir = model_path
      args.model_type = 'roberta'
      args.model_name_or_path = 'roberta-base'
      args.do_eval = True
@@ -138,7 +144,9 @@ def arf_args(model_path):
 def mlm_args(model_path):
      args = init_args()
      args.per_gpu_eval_batch_size = 1
-     args.output_dir = model_path
+     args.pretrained_dir = model_path
+     if args.output_dir is None:
+          args.output_dir = model_path
      args.model_type = 'roberta'
      args.model_name_or_path = 'roberta-base'
      args.do_eval = True

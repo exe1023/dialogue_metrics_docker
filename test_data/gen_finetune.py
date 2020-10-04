@@ -80,10 +80,12 @@ with open('ask_templates.csv') as f:
             clean_samples.append(request)
 print('# clean samples:', len(clean_samples))
 
+train_data = requests + clean_samples[:300]
+dev_data = clean_samples[300:]
 with open('lm_train.txt', 'w') as f:
-    for request in clean_samples:
+    for request in train_data:
         f.write(request + '\n')
 
 with open('lm_dev.txt', 'w') as f:
-    for request in requests:
+    for request in dev_data:
         f.write(request + '\n')

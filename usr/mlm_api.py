@@ -63,7 +63,7 @@ MODEL_CLASSES = {
 
 
 class TextDataset(Dataset):
-    def __init__(self, tokenizer, text=None, file_path=None, block_size=512):
+    def __init__(self, tokenizer, text=None, file_path=None, block_size=512, no_cache=True, evaluate=True):
         if text is not None:
             self.examples = []
             tokenized_text = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
@@ -72,10 +72,11 @@ class TextDataset(Dataset):
                 self.examples.append(tokenizer.build_inputs_with_special_tokens(tokenized_l))
         else:
             assert os.path.isfile(file_path)
+
             directory, filename = os.path.split(file_path)
             cached_features_file = os.path.join(directory, 'cached_lm_' + str(block_size) + '_' + filename)
 
-            if os.path.exists(cached_features_file):
+            if not no_cache and os.path.exists(cached_features_file):
                 logger.info("Loading features from cached file %s", cached_features_file)
                 with open(cached_features_file, 'rb') as handle:
                     self.examples = pickle.load(handle)
@@ -88,16 +89,15 @@ class TextDataset(Dataset):
 
                 tokenized_text = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
-
                 # TODO:  uncomment for inference
-                for l in text.split('\n')[:-1]:
-                    tokenized_l = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(l))
-                    self.examples.append(tokenizer.build_inputs_with_special_tokens(tokenized_l))
-
-
-                # TODO: uncomment for training
-                #for i in range(0, len(tokenized_text)-block_size+1, block_size): # Truncate in block of block_size
-                #    self.examples.append(tokenizer.build_inputs_with_special_tokens(tokenized_text[i:i+block_size]))
+                if evaluate:
+                    for l in text.split('\n')[:-1]:
+                        tokenized_l = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(l))
+                        self.examples.append(tokenizer.build_inputs_with_special_tokens(tokenized_l))
+                else:
+                    # TODO: uncomment for training
+                    for i in range(0, len(tokenized_text)-block_size+1, block_size): # Truncate in block of block_size
+                        self.examples.append(tokenizer.build_inputs_with_special_tokens(tokenized_text[i:i+block_size]))
 
 
                 # Note that we are loosing the last truncated example here for the sake of simplicity (no padding)
@@ -118,10 +118,10 @@ class TextDataset(Dataset):
 
 def load_and_cache_examples(args, tokenizer, text=None, evaluate=False):
     if text is not None:
-        dataset = TextDataset(tokenizer, text=text, block_size=args.block_size)
+        dataset = TextDataset(tokenizer, text=text, block_size=args.block_size, evaluate=True)
     else:
         dataset = TextDataset(tokenizer, file_path=args.eval_data_file if evaluate else args.train_data_file, 
-                              block_size= args.block_size)
+                              block_size= args.block_size, evaluate=evaluate)
     return dataset
 
 
@@ -253,7 +253,51 @@ def evaluate(args, model, tokenizer, text, prefix=""):
     #quit()
     return scores
 
-def train(args, train_dataset, model, tokenizer):
+def dev(args, eval_dataset, model, tokenizer):
+    # Loop to handle MNLI double evaluation (matched, mis-matched)
+    eval_output_dir = args.output_dir
+
+    if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
+        os.makedirs(eval_output_dir)
+
+    args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
+    # Note that DistributedSampler samples randomly
+    eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
+    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
+
+    # Eval!
+    #logger.info("  Num examples = %d", len(eval_dataset))
+    #logger.info("  Batch size = %d", args.eval_batch_size)
+    eval_loss = 0.0
+    nb_eval_steps = 0
+    model.eval()
+
+    scores = []
+    for batch in tqdm(eval_dataloader, desc="Evaluating"):
+        #inputs, labels = mask_tokens_understandable(batch[:,-100:], tokenizer, args) if args.mlm else (batch, batch)
+        inputs, labels = mask_tokens(batch, tokenizer, args) if args.mlm else (batch, batch)
+        inputs = inputs.to(args.device)
+        labels = labels.to(args.device)
+        #print(inputs, labels)
+
+        with torch.no_grad():
+            outputs = model(inputs, masked_lm_labels=labels) if args.mlm else model(inputs, labels=labels)
+            lm_loss = outputs[0]
+            eval_loss += lm_loss.mean().item()
+            scores.append(-lm_loss.mean().item())
+        nb_eval_steps += 1
+
+    eval_loss = eval_loss / nb_eval_steps
+    perplexity = torch.exp(torch.tensor(eval_loss))
+    #open("/home/shikib/alexa-prize-topical-chat-dataset/labels/mlm_roberta.scores", "w+").write(str(scores))
+
+    #open("undr/mlm_roberta.scores", "w+").write(str(scores))
+    #fn = args.eval_data_file.split(".")[0] + ".scores"
+    #open(fn, "w+").write(str(scores))
+    #quit()
+    logger.info(f'Eval Loss: {eval_loss}, PPL: {perplexity}')
+
+def train(args, train_dataset, dev_dataset, model, tokenizer):
     """ Train the model """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -362,6 +406,10 @@ def train(args, train_dataset, model, tokenizer):
                     logger.info("Saving model checkpoint to %s", output_dir)
 
                     _rotate_checkpoints(args, checkpoint_prefix)
+            
+            if (step + 1) % args.logging_steps == 0:
+                logger.info(f'Step: {step+1} Loss: {loss.item()}')
+                dev(args, dev_dataset, model, tokenizer)
 
             if args.max_steps > 0 and global_step > args.max_steps:
                 epoch_iterator.close()
@@ -384,11 +432,11 @@ def train_main(args, model, tokenizer):
             torch.distributed.barrier()  # Barrier to make sure only the first process in distributed training process the dataset, and the others will use the cache
 
         train_dataset = load_and_cache_examples(args, tokenizer, text=None, evaluate=False)
-
+        dev_dataset = load_and_cache_examples(args, tokenizer, text=None, evaluate=True)
         if args.local_rank == 0:
             torch.distributed.barrier()
 
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer)
+        global_step, tr_loss = train(args, train_dataset, dev_dataset, model, tokenizer)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
 
@@ -463,7 +511,7 @@ def init(args):
     #                                    from_tf=bool('.ckpt' in args.model_name_or_path),
     #                                    config=config,
     #                                    cache_dir=args.cache_dir if args.cache_dir else None)
-    model = model_class.from_pretrained(args.output_dir)
+    model = model_class.from_pretrained(args.pretrained_dir)
     model.to(args.device)   
     return args, model, tokenizer
 
