@@ -177,8 +177,11 @@ def mask_tokens_understandable(inputs, tokenizer, args):
 
     inputs = inputs.repeat(inputs.size(1)-2, 1)
     labels = inputs.clone() * 0 - 1
-    
-    masked_indices = torch.arange(inputs.size(1))[1:-1].cuda()
+
+    if args.no_cuda:
+        masked_indices = torch.arange(inputs.size(1))[1:-1]
+    else:
+        masked_indices = torch.arange(inputs.size(1))[1:-1].cuda()
     for i in range(inputs.size(1)-2):
       labels[i, masked_indices[i]] = inputs[i, masked_indices[i]]
       inputs[i, masked_indices[i]] = tokenizer.convert_tokens_to_ids(tokenizer.mask_token)

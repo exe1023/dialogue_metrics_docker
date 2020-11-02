@@ -91,6 +91,6 @@ if __name__ == "__main__":
 
     # Evaluate
     app = make_app()
-    app.listen(8888)
+    app.listen(port=10235, address='ased-1.lti.cs.cmu.edu')
     tornado.ioloop.IOLoop.current().start()
 

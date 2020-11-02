@@ -82,7 +82,7 @@ def prep_uk(context, response):
 def init_args():
   # Here we handcraft where the pretrained models are
   #prefix = '/workspace/'
-  prefix = '/home/yiting/usr/'
+  prefix = '/usr0/home/yitingye/dialogue_metrics_docker/usr/'
   drc_args = arguments.arc_args(prefix + 'pretrained_models/ctx')
   drf_args = arguments.arf_args(prefix + 'pretrained_models/uk')
   mlm_args = arguments.mlm_args(prefix + 'pretrained_models/roberta_ft')
@@ -124,7 +124,7 @@ def get_scores(context, response,
                       context, response, model_type='drc')
   drf_scores = get_dr_score(drf_args, drf_model, drf_tokenizer,
                       context, response, model_type='drf')
-  mlm_scores, _, _ = get_mlm_score(mlm_args, mlm_model, mlm_tokenizer,
+  mlm_scores = get_mlm_score(mlm_args, mlm_model, mlm_tokenizer,
                       context, response)
 
   scores['USR-DRc'], scores['USR-DRf'], scores['USR-MLM'] = np.mean(drc_scores), np.mean(drf_scores), np.mean(mlm_scores)
