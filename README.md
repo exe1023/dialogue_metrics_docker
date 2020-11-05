@@ -2,9 +2,9 @@
 
 The repository of the dockerized version of [Unsupervised Evaluation of Interactive Dialog with DialoGPT](https://github.com/Shikib/fed) and [USR: An Unsupervised and Reference Free Evaluation Metric for DialogGeneration](https://github.com/Shikib/usr).
 
-Please refer to `fed` and `usr` two directories to see how to run the docker server.
+Please refer to `fed` and `usr` two directories to see how to run the docker server on your machine.
 
-## Testing
+## Local Testing
 ```
 sh test_server.sh TESTFILE PORT
 ```
@@ -16,9 +16,9 @@ For example, you can run
 sh test_server.sh test_data/sample.json 8888
 ```
 
-## Preliminary API Formats
+## API Formats
 
-Input: (take test_data/sample.json as an example)
+Input: (Sample is also in test_data/sample.json)
 ```
 [
     { 
@@ -68,6 +68,21 @@ Server Output: (take usr as an example)
 }
 ```
 
+
+## Query Evaluationb Server
+
+FED metric server is listening to `ased-1.lti.cs.cmu.edu:10234`
+
+USR metric server is listening to `ased-1.lti.cs.cmu.edu:10235`
+
+Example script for querying FED server:
+
+```
+curl --header "Content-Type: application/json" \
+  --request POST \
+  -d @test_data/sample.json \
+  http://ased-1.lti.cs.cmu.edu:10234/
+```
 
 ## Code Structure
 

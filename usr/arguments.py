@@ -1,4 +1,7 @@
 import argparse
+import torch
+
+no_cuda = False if torch.cuda.is_available() else True
 def init_args():
      parser = argparse.ArgumentParser()
      parser.add_argument('--finetune_task', default='mlm', type=str)
@@ -126,6 +129,7 @@ def arc_args(model_path):
      args.do_eval = True
      args.task_name = 'qqp'
      args.no_cache = True
+     args.no_cuda = no_cuda
      return args
 
 def arf_args(model_path):
@@ -139,6 +143,7 @@ def arf_args(model_path):
      args.do_eval = True
      args.task_name = 'qqp'
      args.no_cache = True
+     args.no_cuda = no_cuda
      return args
 
 def mlm_args(model_path):
@@ -152,4 +157,5 @@ def mlm_args(model_path):
      args.do_eval = True
      args.mlm = True
      args.no_cache = True
+     args.no_cuda = no_cuda
      return args

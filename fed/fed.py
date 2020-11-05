@@ -19,6 +19,8 @@ from transformers import AutoTokenizer, AutoModelWithLMHead
 #weights.pop("lm_head.decoder.weight",None)
 #model.load_state_dict(weights)
 
+max_batch_size = 2
+max_seq_length = 128
 
 def load_models(name="microsoft/DialoGPT-large"):
   tokenizer = AutoTokenizer.from_pretrained(name)
@@ -131,7 +133,7 @@ def evaluate(conversation, model, tokenizer):
     for m in neg:
       texts.append(conversation + " <|endoftext|> " + m)
       
-  loss = score_batch(texts, tokenizer, model, batch_size=-1)
+  loss = score_batch(texts, tokenizer, model, batch_size=max_batch_size, max_seq_length=max_seq_length)
   idx = 0
   for metric, utts in turn_level_utts.items():
     pos, neg = utts["positive"], utts['negative']
@@ -198,7 +200,7 @@ def evaluate(conversation, model, tokenizer):
       texts.append(conversation + " <|endoftext|> " + m)
     for m in neg:
       texts.append(conversation + " <|endoftext|> " + m)
-  loss = score_batch(texts, tokenizer, model, batch_size=-1)
+  loss = score_batch(texts, tokenizer, model, batch_size=max_batch_size, max_seq_length=max_seq_length)
   idx = 0
   for metric, utts in dialog_level_utts.items():
     pos, neg = utts["positive"], utts['negative']
