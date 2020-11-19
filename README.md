@@ -24,7 +24,8 @@ Input: (Sample is also in test_data/sample.json)
     { 
         "dialogid" : "xxx", 
         "system_name" : "xxx", 
-        "date": "optional", 
+        "date": "optional",
+        "truncate_type": "normal",  
         "dialogue_context":  
         [ 
             {"agent": "scmamer", "text": "Hi!"}, 
@@ -40,6 +41,12 @@ Input: (Sample is also in test_data/sample.json)
     }
 ]
 ```
+
+(11/18 update) 
+Add "truncate_type" for the tradeoff between inference speed and (theoretical) performance.
+- If "normal", then use the original version (batch size=2, max sequence length=128).
+- If "no_truncate", then we don't do additional truncation but inference with cpu.
+- If "more", then truncate each sentence more but use larger batch size (batch size=4, max sequence size=64)
 
 Server Output: (take usr as an example)
 ```

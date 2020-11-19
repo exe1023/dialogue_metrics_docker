@@ -1,7 +1,8 @@
 [
 { "dialogid" : "xxx", 
   "system_name" : "xxx", 
-  "date": "optional", 
+  "date": "optional",
+  "truncate_type": "normal", 
   "dialogue_context":  
     [ {"agent": "scmamer", "text": "Hi!"}, 
       {"agent": "victim", "text": "Hello, how is your day?"}, 
