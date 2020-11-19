@@ -19,21 +19,19 @@ from transformers import AutoTokenizer, AutoModelWithLMHead
 #weights.pop("lm_head.decoder.weight",None)
 #model.load_state_dict(weights)
 
-max_batch_size = 2
-max_seq_length = 128
 
 def load_models(name="microsoft/DialoGPT-large"):
   tokenizer = AutoTokenizer.from_pretrained(name)
   model = AutoModelWithLMHead.from_pretrained(name)
-  model.to("cuda")
   return model, tokenizer
 
-def score_batch(texts, tokenizer, model, batch_size=-1, max_seq_length=256):
+def score_batch(texts, tokenizer, model, batch_size=-1, max_seq_length=256, device='cpu'):
   '''
   texts: list of string
   tokenizer, model: pretrained tokenizer ana model from HuggingFace transformers
   batch_size: specify the batch size you want to use in inference. -1 means packing all queries in 1 batch.
   max_seq_length: specify the maximum sequence length after tokenization. Max: 1024
+  device: which device to use. "cuda", "cpu"
   '''
   # make sure all text will in 1024:
   text_batchs = []
@@ -49,10 +47,14 @@ def score_batch(texts, tokenizer, model, batch_size=-1, max_seq_length=256):
   token_ids = [tokenizer.convert_tokens_to_ids(s) for s in text_batchs]
   max_text_length = max([len(s) for s in token_ids])
   padded_tokens = [tok_ids + (pad_idx * (max_text_length - len(tok_ids))) for tok_ids in token_ids]
-  input_ids = torch.tensor(padded_tokens).cuda()
-  attention_mask = torch.zeros(input_ids.shape).long().cuda()
+  input_ids = torch.tensor(padded_tokens)
+  attention_mask = torch.zeros(input_ids.shape).long()
   for idx, tok_ids in enumerate(token_ids):
     attention_mask[idx][:len(tok_ids)] = 1
+
+  model = model.to(device)
+  input_ids = input_ids.to(device)
+  attention_mask = attention_mask.to(device)
 
   with torch.no_grad():
       if batch_size == -1:
@@ -88,7 +90,7 @@ def score(text, tokenizer, model):
       loss, logits = outputs[:2]
   return loss.item() 
 
-def evaluate(conversation, model, tokenizer):
+def evaluate(conversation, model, tokenizer, truncate_type='normal'):
   scores = {}
   turn_level_utts = {
     "interesting": {
@@ -125,6 +127,20 @@ def evaluate(conversation, model, tokenizer):
     },
   }
 
+  if truncate_type == 'no_truncate':
+    max_batch_size = 1
+    max_seq_length = 1024
+    device = 'cpu'
+  elif truncate_type == 'normal':
+    max_batch_size = 2
+    max_seq_length = 128
+    device = 'cuda'
+  elif truncate_type == 'more':
+    max_batch_size = 4
+    max_seq_length = 64
+    device = 'cuda'
+
+
   texts = []  
   for metric, utts in turn_level_utts.items():
     pos, neg = utts["positive"], utts['negative']
@@ -133,7 +149,7 @@ def evaluate(conversation, model, tokenizer):
     for m in neg:
       texts.append(conversation + " <|endoftext|> " + m)
       
-  loss = score_batch(texts, tokenizer, model, batch_size=max_batch_size, max_seq_length=max_seq_length)
+  loss = score_batch(texts, tokenizer, model, batch_size=max_batch_size, max_seq_length=max_seq_length, device=device)
   idx = 0
   for metric, utts in turn_level_utts.items():
     pos, neg = utts["positive"], utts['negative']
@@ -200,7 +216,7 @@ def evaluate(conversation, model, tokenizer):
       texts.append(conversation + " <|endoftext|> " + m)
     for m in neg:
       texts.append(conversation + " <|endoftext|> " + m)
-  loss = score_batch(texts, tokenizer, model, batch_size=max_batch_size, max_seq_length=max_seq_length)
+  loss = score_batch(texts, tokenizer, model, batch_size=max_batch_size, max_seq_length=max_seq_length, device=device)
   idx = 0
   for metric, utts in dialog_level_utts.items():
     pos, neg = utts["positive"], utts['negative']

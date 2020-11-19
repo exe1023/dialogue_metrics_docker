@@ -49,6 +49,13 @@ class MainHandler(tornado.web.RequestHandler):
         logging.info('Received {} Requests'.format(len(body)))
         for i, request in enumerate(body):
             print('deal with ', i)
+            
+            if 'truncate_type' in request:
+                truncate_type = request['truncate_type']
+            else:
+                truncate_type = 'normal'
+            print('truncate_type', truncate_type)
+            
             logging.info('Received Data ' + str(request))
             # context format "<|endoftext|> message1 <|endoftext|> message2 ... <|endoftext|> response"        
             context = [message['text'] for message in request['dialogue_context']]
@@ -59,11 +66,12 @@ class MainHandler(tornado.web.RequestHandler):
             for response in request['response_list']:
                 conversation = context + response
                 #print(conversation)
-                scores.append(fed.evaluate(conversation, model, tokenizer))
+                scores.append(fed.evaluate(conversation, model, tokenizer, truncate_type=truncate_type))
             
             request['response_scores'] = scores
             #print(server_response)
             logging.info('Response Scores ' + str(scores))
+            
         self.write({'Results': body})
 
 def tail(file, n=1, bs=1024):
